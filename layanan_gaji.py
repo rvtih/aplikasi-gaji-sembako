@@ -81,3 +81,17 @@ def hapus_slip_gaji(doc_id):
     except Exception as e:
         print(f"ERROR saat menghapus data: {e}")
         return False # Kembalikan False jika gagal
+    
+def hitung_gaji_bersih(gaji_pokok, hari_izin, pot_izin, hari_sakit, pot_sakit):
+    """
+    Fungsi baru untuk menghitung gaji bersih bulanan.
+    Mengembalikan (gaji_bersih, total_potongan)
+    """
+    potongan_izin = hari_izin * pot_izin
+    potongan_sakit = hari_sakit * pot_sakit
+    
+    total_potongan = potongan_izin + potongan_sakit
+    gaji_bersih = gaji_pokok - total_potongan
+    
+    # Kita kembalikan 2 nilai ini agar bisa ditampilkan
+    return gaji_bersih, total_potongan
