@@ -1,97 +1,47 @@
-# Impor variabel 'db' dari file config kita
-from firebase_config import db
-import datetime
-from firebase_admin import firestore # <- TAMBAHKAN INI
-
-def hitung_gaji_kotor(jam_kerja, gaji_per_jam):
+def hitung_gaji_lengkap(data_input):
     """
-    Fungsi murni untuk menghitung gaji.
-    Menerima angka, mengembalikan angka.
-    """
-    return jam_kerja * gaji_per_jam
-
-def simpan_slip_gaji(data_slip):
-    """
-    Fungsi untuk menyimpan data slip ke Firebase.
-    Menerima data (dictionary), mengembalikan ID dokumen jika berhasil.
+    Fungsi super lengkap untuk menghitung gaji bersih.
+    Menerima 1 'dict' data input, mengembalikan 1 'dict' hasil perhitungan.
     """
     
-    # Pastikan koneksi db ada (dari file config)
-    if not db:
-        print("ERROR: Koneksi database tidak ada. Data tidak tersimpan.")
-        return None # Kembalikan 'None' untuk menandakan kegagalan
-
-    try:
-        # Tambahkan stempel waktu di sini, bukan di file utama
-        data_slip['tanggal_simpan'] = datetime.datetime.now()
-        
-        # Kirim data ke collection 'slip_gaji'
-        doc_ref = db.collection('slip_gaji').add(data_slip)
-        
-        # Kembalikan ID dokumen sebagai konfirmasi
-        return doc_ref[1].id
+    # Ambil semua data dari dict input, beri nilai 0 jika tidak ada
+    gaji_pokok = data_input.get('gaji_pokok', 0)
+    uang_makan = data_input.get('uang_makan', 0)
+    uang_transport = data_input.get('uang_transport', 0)
     
-    except Exception as e:
-        print(f"ERROR saat mencoba menyimpan ke Firebase: {e}")
-        return None
+    jam_lembur = data_input.get('jam_lembur', 0)
+    upah_lembur_per_jam = data_input.get('upah_lembur_per_jam', 0)
     
-def ambil_semua_slip():
-    """
-    Fungsi untuk mengambil semua data slip dari Firebase.
-    Daftar slip diurutkan berdasarkan tanggal terbaru.
-    """
-    if not db:
-        print("ERROR: Koneksi database tidak ada.")
-        return [] # Kembalikan daftar kosong jika gagal
-
-    try:
-        # Kita ambil data dari koleksi 'slip_gaji'
-        # Kita urutkan berdasarkan 'tanggal_simpan', dari yang terbaru (DESCENDING)
-        docs_stream = db.collection('slip_gaji').order_by(
-            'tanggal_simpan', direction=firestore.Query.DESCENDING
-        ).stream()
-        
-        semua_slip = []
-        for doc in docs_stream:
-            # doc.to_dict() adalah data (nama, gaji, dll)
-            # doc.id adalah ID unik (DWem0bLrTcuqFP712T39)
-            data = doc.to_dict()
-            data['id'] = doc.id  # Kita selipkan ID-nya ke data
-            semua_slip.append(data)
-        
-        return semua_slip
+    hari_izin = data_input.get('hari_izin', 0)
+    pot_izin = data_input.get('pot_izin', 0)
+    hari_sakit = data_input.get('hari_sakit', 0)
+    pot_sakit = data_input.get('pot_sakit', 0)
     
-    except Exception as e:
-        print(f"ERROR saat mengambil data dari Firebase: {e}")
-        return [] # Kembalikan daftar kosong
+    kasbon = data_input.get('kasbon', 0)
     
-def hapus_slip_gaji(doc_id):
-    """
-    Fungsi untuk menghapus 1 dokumen slip berdasarkan ID-nya.
-    """
-    if not db:
-        print("ERROR: Koneksi database tidak ada.")
-        return False
-
-    try:
-        # Perintahnya sederhana: pilih dokumen berdasarkan ID, lalu .delete()
-        db.collection('slip_gaji').document(doc_id).delete()
-        return True # Kembalikan True jika berhasil
+    # --- PROSES PERHITUNGAN ---
     
-    except Exception as e:
-        print(f"ERROR saat menghapus data: {e}")
-        return False # Kembalikan False jika gagal
+    # 1. Total Pendapatan
+    total_tunjangan = uang_makan + uang_transport
+    total_lembur = jam_lembur * upah_lembur_per_jam
+    total_pendapatan = gaji_pokok + total_tunjangan + total_lembur
     
-def hitung_gaji_bersih(gaji_pokok, hari_izin, pot_izin, hari_sakit, pot_sakit):
-    """
-    Fungsi baru untuk menghitung gaji bersih bulanan.
-    Mengembalikan (gaji_bersih, total_potongan)
-    """
-    potongan_izin = hari_izin * pot_izin
-    potongan_sakit = hari_sakit * pot_sakit
+    # 2. Total Potongan
+    total_pot_absensi = (hari_izin * pot_izin) + (hari_sakit * pot_sakit)
+    total_potongan = total_pot_absensi + kasbon
     
-    total_potongan = potongan_izin + potongan_sakit
-    gaji_bersih = gaji_pokok - total_potongan
+    # 3. Gaji Bersih
+    gaji_bersih = total_pendapatan - total_potongan
     
-    # Kita kembalikan 2 nilai ini agar bisa ditampilkan
-    return gaji_bersih, total_potongan
+    # Kembalikan SEMUA rinciannya dalam bentuk dict
+    hasil = {
+        'gaji_pokok': gaji_pokok,
+        'total_tunjangan': total_tunjangan,
+        'total_lembur': total_lembur,
+        'total_pendapatan': total_pendapatan,
+        'total_pot_absensi': total_pot_absensi,
+        'kasbon': kasbon,
+        'total_potongan': total_potongan,
+        'gaji_bersih': gaji_bersih
+    }
+    return hasil
